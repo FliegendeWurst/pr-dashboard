@@ -15,7 +15,7 @@ use axum::middleware::{self, Next};
 use axum::response::{Html, IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
-use axum_client_ip::{SecureClientIp, SecureClientIpSource};
+use axum_client_ip::{InsecureClientIp, SecureClientIpSource};
 use chrono::{Local, NaiveDateTime};
 use database::DB;
 use octocrab::models::pulls::PullRequest;
@@ -130,7 +130,7 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-async fn log_time(SecureClientIp(ip): SecureClientIp, req: Request, next: Next) -> Response {
+async fn log_time(InsecureClientIp(ip): InsecureClientIp, req: Request, next: Next) -> Response {
 	let start = SystemTime::now();
 
 	let method = req.method().to_string();
@@ -547,7 +547,7 @@ async fn move_pr() -> &'static str {
 
 async fn reserve_pr(
 	Query(params): Query<HashMap<String, String>>,
-	SecureClientIp(ip): SecureClientIp,
+	InsecureClientIp(ip): InsecureClientIp,
 ) -> Result<String, AppError> {
 	let cat = params.get("category").expect("malformed request, requires category");
 
