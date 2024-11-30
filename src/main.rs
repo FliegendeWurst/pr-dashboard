@@ -487,7 +487,7 @@ async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, Ap
 						tracing::warn!("error during pr housekeep: {:?}", err);
 					}
 				}
-			} else if category.is_none() && ofborg_evaled {
+			} else if ofborg_evaled {
 				let res = tx.execute(
 					"UPDATE pulls
 					SET category = ?1
