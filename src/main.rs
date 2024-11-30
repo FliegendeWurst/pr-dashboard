@@ -455,7 +455,9 @@ async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, Ap
 			// 1. Mark new PRs as ready for review if ofborg labeled them!
 			let ofborg_evaled = labels.iter().any(|x| x.name.starts_with("10."));
 			// 2. Mark PRs as waiting for author based on label
-			let await_author = labels.iter().any(|x| x.name == "awaiting_changes");
+			let await_author = labels
+				.iter()
+				.any(|x| x.name == "awaiting_changes" || x.name == "2.status: merge conflict");
 			// 3. Mark PRs as needing merger based on label
 			let need_merger = labels.iter().any(|x| x.name == "needs_merger");
 
