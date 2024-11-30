@@ -459,7 +459,9 @@ async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, Ap
 				.iter()
 				.any(|x| x.name == "awaiting_changes" || x.name == "2.status: merge conflict");
 			// 3. Mark PRs as needing merger based on label
-			let need_merger = labels.iter().any(|x| x.name == "needs_merger");
+			let need_merger = labels
+				.iter()
+				.any(|x| x.name == "needs_merger" || x.name == "12.approvals: 3+");
 
 			if await_author || data.draft.unwrap_or(false) {
 				if category.as_deref() != Some(AWAITING_AUTHOR) {
