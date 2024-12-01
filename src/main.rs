@@ -454,16 +454,17 @@ async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, Ap
 			let labels = data.labels.as_deref().unwrap_or_default();
 			// 1. Mark new PRs as ready for review if ofborg labeled them!
 			let ofborg_evaled = labels.iter().any(|x| x.name.starts_with("10."));
-			// 2. Mark PRs as waiting for author based on label
+			// 2. Mark PRs based on labels
 			let await_author = labels
 				.iter()
-				.any(|x| x.name == "awaiting_changes" || x.name == "2.status: merge conflict");
-			// 3. Mark PRs as needing merger based on label
+				.any(|x| x.name == "awaiting_changes" || x.name == "2.status: merge conflict")
+				|| data.draft.unwrap_or(false);
 			let need_merger = labels
 				.iter()
 				.any(|x| x.name == "needs_merger" || x.name == "12.approvals: 3+");
+			let need_reviewer = ofborg_evaled;
 
-			if await_author || data.draft.unwrap_or(false) {
+			if await_author {
 				if category.as_deref() != Some(AWAITING_AUTHOR) {
 					let res = tx.execute(
 						"UPDATE pulls
@@ -487,15 +488,17 @@ async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, Ap
 						tracing::warn!("error during pr housekeep: {:?}", err);
 					}
 				}
-			} else if ofborg_evaled {
-				let res = tx.execute(
-					"UPDATE pulls
-					SET category = ?1
-					WHERE id = ?2",
-					params![NEEDS_REVIEWER, id],
-				);
-				if let Err(err) = res {
-					tracing::warn!("error during pr housekeep: {:?}", err);
+			} else if need_reviewer {
+				if category.as_deref() != Some(NEEDS_REVIEWER) {
+					let res = tx.execute(
+						"UPDATE pulls
+						SET category = ?1
+						WHERE id = ?2",
+						params![NEEDS_REVIEWER, id],
+					);
+					if let Err(err) = res {
+						tracing::warn!("error during pr housekeep: {:?}", err);
+					}
 				}
 			}
 		}
@@ -550,10 +553,13 @@ async fn move_pr() -> &'static str {
 }
 
 async fn reserve_pr(
+	State(state): State<AppState>,
 	Query(params): Query<HashMap<String, String>>,
 	InsecureClientIp(ip): InsecureClientIp,
 ) -> Result<String, AppError> {
 	let cat = params.get("category").expect("malformed request, requires category");
+
+	let lock = state.update_lock.lock().await;
 
 	let time = Local::now().naive_local().format(TIME_FORMAT).to_string();
 
@@ -605,6 +611,8 @@ async fn reserve_pr(
 
 		Ok(Some(format!("https://github.com/NixOS/nixpkgs/pull/{id}")))
 	})?;
+
+	drop(lock);
 
 	if let Some(result) = result {
 		Ok(result)
