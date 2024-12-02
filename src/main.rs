@@ -158,21 +158,25 @@ struct AppState {
 
 static INDEX: &'static str = include_str!("../index.html");
 
+fn construct_sql_filter(filter_query: &str) -> String {
+	let mut filter = "".to_owned();
+	for label in filter_query.split(';') {
+		if let Some(offender) = label
+			.chars()
+			.filter(|x| !x.is_ascii_alphanumeric() && *x != '.' && *x != ' ' && *x != '-' && *x != '_' && *x != ':')
+			.next()
+		{
+			panic!("invalid character in label filter: {offender:?}");
+		}
+		filter += &format!(r#"AND data LIKE "%{label}%""#);
+	}
+	filter
+}
+
 async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<String>, AppError> {
 	let filter = params.get("filter");
 	let sql_filter = if let Some(filter_query) = filter {
-		let mut filter = "".to_owned();
-		for label in filter_query.split(';') {
-			if let Some(offender) = label
-				.chars()
-				.filter(|x| !x.is_ascii_alphanumeric() && *x != '.' && *x != ' ' && *x != '-' && *x != '_' && *x != ':')
-				.next()
-			{
-				panic!("invalid character in label filter: {offender:?}");
-			}
-			filter += &format!(r#"AND data LIKE "%{label}%""#);
-		}
-		filter
+		construct_sql_filter(filter_query)
 	} else {
 		"".to_owned()
 	};
@@ -328,6 +332,10 @@ async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<Stri
 		.replace("$C2", &count_null.to_string())
 		.replace("$C3", &count_needs_reviewer.to_string())
 		.replace("$C4", &count_needs_merger.to_string())
+		.replace(
+			"$RESERVE_FILTER",
+			&filter.map(|x| format!("&filter={x}")).unwrap_or_default(),
+		)
 		.replace("$PRS_1", &prs_author)
 		.replace("$PRS_2", &prs_new)
 		.replace("$PRS_3", &prs_need_review)
@@ -558,6 +566,8 @@ async fn reserve_pr(
 	InsecureClientIp(ip): InsecureClientIp,
 ) -> Result<String, AppError> {
 	let cat = params.get("category").expect("malformed request, requires category");
+	let filter = params.get("filter");
+	let sql_filter = filter.map(|x| construct_sql_filter(x)).unwrap_or_default();
 
 	let lock = state.update_lock.lock().await;
 
@@ -573,7 +583,7 @@ async fn reserve_pr(
 			WHERE rowid = (
   				SELECT rowid
   				FROM pulls
-  				WHERE reserved_by IS NULL AND category {qual}
+  				WHERE reserved_by IS NULL AND category {qual} {sql_filter}
 				ORDER BY last_updated ASC
 				LIMIT 1
 			)

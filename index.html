@@ -135,7 +135,7 @@ html, body {
 "use strict";
 
 function reserveAndOpen(category) {
-	fetch(`reserve-pr?category=${category}`, { "method": "POST" })
+	fetch(`reserve-pr?category=${category}$RESERVE_FILTER`, { "method": "POST" })
 		.then(resp => resp.text())
 		.then(url => {
 			if (!url.startsWith("https")) {
