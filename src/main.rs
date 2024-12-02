@@ -469,7 +469,7 @@ async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, Ap
 				|| data.draft.unwrap_or(false);
 			let need_merger = labels
 				.iter()
-				.any(|x| x.name == "needs_merger" || x.name == "12.approvals: 3+");
+				.any(|x| x.name == "needs_merger" || x.name == "awaiting_merger" || x.name == "12.approvals: 3+");
 			let need_reviewer = ofborg_evaled;
 
 			if await_author {
