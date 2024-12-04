@@ -100,7 +100,6 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 	// Routes
 	// GET /: main dashboard
 	// POST /update-prs: fetch new data from GH
-	// POST /move-pr: move PR to new category
 	// POST /reserve-pr: claim PR
 	let app = Router::new()
 		.route("/", get(root))
