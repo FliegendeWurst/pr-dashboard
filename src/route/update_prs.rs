@@ -1,7 +1,10 @@
 use std::rc::Rc;
 
 use axum::extract::State;
-use octocrab::{models::IssueState, params::{pulls::Sort, Direction}};
+use octocrab::{
+	models::IssueState,
+	params::{pulls::Sort, Direction},
+};
 use rusqlite::{params, params_from_iter};
 
 use crate::{database::DB, with_db, AppError, AppState, TIME_FORMAT};

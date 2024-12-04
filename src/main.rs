@@ -56,9 +56,9 @@ macro_rules! with_db {
 #[macro_export]
 macro_rules! extract_row {
 	($($t:ty)*) => {
-		|row| {
-			let mut i = 0usize;
-			Ok(($(row.get::<_, $t>({ i += 1; i - 1 })?),*))
+		|_row| {
+			let mut _i = 0usize;
+			Ok(($(_row.get::<_, $t>({ _i += 1; _i - 1 })?),*))
 		}
 	};
 }
@@ -106,8 +106,9 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 		.route("/", get(root))
 		.route("/update-prs", post(update_prs))
 		.route("/housekeep-prs", post(housekeep_prs))
-		.route("/move-pr", post(move_pr))
 		.route("/reserve-pr", post(reserve_pr))
+		.route("/list-reservations", get(list_reservations))
+		.route("/extend-reservations", post(extend_reservations))
 		.layer(middleware::from_fn(log_time))
 		.layer(SecureClientIpSource::ConnectInfo.into_extension())
 		.layer(CatchPanicLayer::custom(handle_panic))
@@ -166,10 +167,6 @@ pub fn construct_sql_filter(filter_query: &str) -> String {
 		filter += &format!(r#"AND data LIKE "%{label}%""#);
 	}
 	filter
-}
-
-async fn move_pr() -> &'static str {
-	"TODO"
 }
 
 pub struct AppError {

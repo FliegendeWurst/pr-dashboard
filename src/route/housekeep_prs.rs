@@ -5,7 +5,9 @@ use chrono::{Local, NaiveDateTime};
 use octocrab::models::pulls::PullRequest;
 use rusqlite::params;
 
-use crate::{database::DB, extract_row, with_db, AppError, AppState, AWAITING_AUTHOR, NEEDS_MERGER, NEEDS_REVIEWER, TIME_FORMAT};
+use crate::{
+	database::DB, extract_row, with_db, AppError, AppState, AWAITING_AUTHOR, NEEDS_MERGER, NEEDS_REVIEWER, TIME_FORMAT,
+};
 
 pub async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str, AppError> {
 	let update_lock = state.update_lock.lock().await;

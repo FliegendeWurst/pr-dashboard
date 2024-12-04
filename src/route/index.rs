@@ -4,7 +4,10 @@ use axum::{extract::Query, response::Html};
 use octocrab::models::pulls::PullRequest;
 use rusqlite::params;
 
-use crate::{construct_sql_filter, database::DB, with_db, AppError, AWAITING_AUTHOR, AWAITING_REVIEWER, NEEDS_MERGER, NEEDS_REVIEWER};
+use crate::{
+	construct_sql_filter, database::DB, with_db, AppError, AWAITING_AUTHOR, AWAITING_REVIEWER, NEEDS_MERGER,
+	NEEDS_REVIEWER,
+};
 
 static INDEX: &'static str = include_str!("../../index.html");
 
