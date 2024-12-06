@@ -2,17 +2,18 @@ use std::collections::HashMap;
 
 use axum::{extract::Query, response::Html};
 use octocrab::models::pulls::PullRequest;
-use rusqlite::params;
 
 use crate::{
-	construct_sql_filter, database::DB, with_db, AppError, AWAITING_AUTHOR, AWAITING_REVIEWER, NEEDS_MERGER,
-	NEEDS_REVIEWER,
+	construct_sql_filter,
+	database::{CommonQueries, DB},
+	with_db, AppError, AWAITING_AUTHOR, AWAITING_REVIEWER, NEEDS_MERGER, NEEDS_REVIEWER, TIME_FORMAT,
 };
 
 static INDEX: &'static str = include_str!("../../index.html");
 
 pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<String>, AppError> {
 	let filter = params.get("filter");
+	let filter_query = filter.cloned().unwrap_or_default();
 	let sql_filter = if let Some(filter_query) = filter {
 		construct_sql_filter(filter_query)
 	} else {
@@ -32,46 +33,10 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 			.map(Result::unwrap)
 			.collect();
 
-		let mut query = tx.prepare(&format!(
-			"SELECT id, author, last_updated, data, category
-			FROM pulls
-			WHERE category IS NULL AND reserved_by IS NULL
-			{sql_filter}
-			ORDER BY last_updated ASC LIMIT 25"
-		))?;
-		let rows = query.query_map([], |row| {
-			Ok((
-				row.get::<_, i64>(0)?,
-				row.get::<_, String>(1)?,
-				row.get::<_, String>(2)?,
-				row.get::<_, String>(3)?,
-				row.get::<_, Option<String>>(4)?,
-			))
-		})?;
 		let mut rows2 = vec![];
-		for row in rows {
-			rows2.push(row?);
-		}
+		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, true, true)?);
 		for cat in [AWAITING_AUTHOR, NEEDS_REVIEWER, NEEDS_MERGER] {
-			let mut query = tx.prepare(&format!(
-				"SELECT id, author, last_updated, data, category
-				FROM pulls
-				WHERE category = ?1 AND reserved_by IS NULL
-				{sql_filter}
-				ORDER BY last_updated ASC LIMIT 25"
-			))?;
-			let rows = query.query_map(params![cat], |row| {
-				Ok((
-					row.get::<_, i64>(0)?,
-					row.get::<_, String>(1)?,
-					row.get::<_, String>(2)?,
-					row.get::<_, String>(3)?,
-					row.get::<_, Option<String>>(4)?,
-				))
-			})?;
-			for row in rows {
-				rows2.push(row?);
-			}
+			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, true, true)?);
 		}
 		Ok((counts, rows2))
 	})?;
@@ -81,11 +46,14 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 	let mut prs_need_review = String::new();
 	let mut prs_need_merger = String::new();
 
-	for (id, _author, last_updated, data, category) in pulls {
-		let mut data: PullRequest = serde_json::from_str(&data)?;
+	for mut pr in pulls {
+		let category = pr.category.clone();
+		let data: &mut PullRequest = &mut *pr;
+		let last_updated = data.updated_at.unwrap().format(TIME_FORMAT).to_string();
 		let title = data.title.as_deref().unwrap();
 		let title = askama_escape::escape(title, askama_escape::Html).to_string();
 		let date = &last_updated[0..10];
+		let id = data.number;
 
 		data.labels.as_mut().map(|x| {
 			x.sort_by_key(|x| {

@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use axum::extract::{Query, State};
 use axum_client_ip::InsecureClientIp;
 use chrono::Local;
-use rusqlite::{params, params_from_iter};
+use rusqlite::params;
 
-use crate::{construct_sql_filter, database::DB, extract_row, with_db, AppError, AppState, TIME_FORMAT};
+use crate::{
+	database::{CommonQueries, DB},
+	extract_row, with_db, AppError, AppState, TIME_FORMAT,
+};
 
 pub async fn reserve_pr(
 	State(state): State<AppState>,
@@ -14,7 +17,6 @@ pub async fn reserve_pr(
 ) -> Result<String, AppError> {
 	let cat = params.get("category").expect("malformed request, requires category");
 	let filter = params.get("filter");
-	let sql_filter = filter.map(|x| construct_sql_filter(x)).unwrap_or_default();
 
 	let lock = state.update_lock.lock().await;
 
@@ -22,29 +24,18 @@ pub async fn reserve_pr(
 
 	let result = with_db!(|db: &mut DB| {
 		let tx = db.transaction()?;
-		let qual = if cat == "New" { "IS NULL" } else { "= ?2" };
-		let cat = if cat == "New" { "" } else { cat };
+		let pulls = tx.get_pulls(Some(cat), filter.map(|x| &**x).unwrap_or_default(), true, true)?;
+		if pulls.is_empty() {
+			return Ok(None);
+		}
 		let mut query = tx.prepare(&format!(
 			"UPDATE pulls
 			SET reserved_by = ?1
-			WHERE rowid = (
-  				SELECT rowid
-  				FROM pulls
-  				WHERE reserved_by IS NULL AND category {qual} {sql_filter}
-				ORDER BY last_updated ASC
-				LIMIT 1
-			)
+			WHERE id = ?2
 			RETURNING id"
 		))?;
 		let Some(id) = query
-			.query_map(
-				if cat != "" {
-					params_from_iter(vec![format!("{ip}"), cat.to_owned()].into_iter())
-				} else {
-					params_from_iter(vec![format!("{ip}")].into_iter())
-				},
-				extract_row!(usize),
-			)?
+			.query_map(params![format!("{ip}"), pulls[0].number], extract_row!(usize))?
 			.next()
 			.map(Result::unwrap)
 		else {
