@@ -27,13 +27,16 @@ pub async fn housekeep_prs(State(state): State<AppState>) -> Result<&'static str
 			// 1. Mark new PRs as ready for review if ofborg labeled them!
 			let ofborg_evaled = labels.iter().any(|x| x.name.starts_with("10."));
 			// 2. Mark PRs based on labels
-			let await_author = labels
-				.iter()
-				.any(|x| x.name == "awaiting_changes" || x.name == "2.status: merge conflict")
-				|| data.draft.unwrap_or(false);
-			let need_merger = labels
-				.iter()
-				.any(|x| x.name == "needs_merger" || x.name == "awaiting_merger" || x.name == "12.approvals: 3+");
+			let await_author =
+				labels.iter().map(|x| &x.name).any(|x| {
+					x == "awaiting_changes" || x == "2.status: merge conflict" || x == "2.status: needs-changes"
+				}) || data.draft.unwrap_or(false);
+			let need_merger = labels.iter().map(|x| &x.name).any(|x| {
+				x == "needs_merger"
+					|| x == "awaiting_merger"
+					|| x == "12.approvals: 3+"
+					|| x == "12.approved-by: package-maintainer"
+			});
 			let need_reviewer = ofborg_evaled;
 
 			if await_author {

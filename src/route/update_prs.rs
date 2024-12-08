@@ -9,6 +9,26 @@ use rusqlite::{params, params_from_iter};
 
 use crate::{database::DB, with_db, AppError, AppState, TIME_FORMAT};
 
+/*
+TODO: consider GraphQL to get more accurate last updated
+test here: https://docs.github.com/en/graphql/overview/explorer
+query {
+  repository(owner: "NixOS", name: "nixpkgs") {
+	pullRequest(number: 347148) {
+	  timelineItems(last: 1, itemTypes: PULL_REQUEST_COMMIT) {
+		nodes {
+		  ... on PullRequestCommit {
+			commit {
+			  committedDate
+			}
+		  }
+		}
+	  }
+	}
+  }
+}
+*/
+
 pub async fn update_prs(State(state): State<AppState>) -> Result<&'static str, AppError> {
 	let update_lock = state.update_lock.lock().await;
 	let last_update = with_db!(|db: &mut DB| db.last_update())?;
