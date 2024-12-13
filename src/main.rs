@@ -158,8 +158,7 @@ pub fn construct_sql_filter(filter_query: &str) -> String {
 	for label in filter_query.split(';') {
 		if let Some(offender) = label
 			.chars()
-			.filter(|x| !x.is_ascii_alphanumeric() && *x != '.' && *x != ' ' && *x != '-' && *x != '_' && *x != ':')
-			.next()
+			.find(|x| !x.is_ascii_alphanumeric() && !matches!(x, '.' | ' ' | '-' | '_' | ':' | '/' | '(' | ')'))
 		{
 			panic!("invalid character in label filter: {offender:?}");
 		}
