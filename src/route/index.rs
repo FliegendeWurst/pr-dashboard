@@ -34,9 +34,9 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 			.collect();
 
 		let mut rows2 = vec![];
-		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, true, true)?);
+		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, true, true, 50)?);
 		for cat in [AWAITING_AUTHOR, NEEDS_REVIEWER, NEEDS_MERGER] {
-			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, true, true)?);
+			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, true, true, 50)?);
 		}
 		Ok((counts, rows2))
 	})?;

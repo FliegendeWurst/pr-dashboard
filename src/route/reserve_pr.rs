@@ -24,7 +24,7 @@ pub async fn reserve_pr(
 
 	let result = with_db!(|db: &mut DB| {
 		let tx = db.transaction()?;
-		let pulls = tx.get_pulls(Some(cat), filter.map(|x| &**x).unwrap_or_default(), true, true)?;
+		let pulls = tx.get_pulls(Some(cat), filter.map(|x| &**x).unwrap_or_default(), true, true, 1)?;
 		if pulls.is_empty() {
 			return Ok(None);
 		}

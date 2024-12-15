@@ -82,6 +82,7 @@ pub trait CommonQueries {
 		filter_query: &str,
 		only_not_reserved: bool,
 		tweak_sort: bool,
+		limit: u64,
 	) -> Result<Vec<PR>, Box<dyn Error>>;
 }
 
@@ -92,6 +93,7 @@ impl<'conn> CommonQueries for Transaction<'conn> {
 		filter_query: &str,
 		only_not_reserved: bool,
 		mut tweak_sort: bool,
+		limit: u64,
 	) -> Result<Vec<PR>, Box<dyn Error>> {
 		if category == Some(NEEDS_MERGER) {
 			tweak_sort = false;
@@ -113,7 +115,7 @@ impl<'conn> CommonQueries for Transaction<'conn> {
 			category {qual}
 			{sql_filter}
 			{reserved_filter}
-			ORDER BY last_updated ASC LIMIT 25"
+			ORDER BY last_updated ASC LIMIT {limit}"
 		))?;
 		let params = if cat != "" { params![cat] } else { params![] };
 		let rows = query.query_map(params, extract_row!(String Option<String>))?;
