@@ -15,6 +15,7 @@ use axum::routing::{get, post};
 use axum::Router;
 use axum_client_ip::{InsecureClientIp, SecureClientIpSource};
 use database::DB;
+use itertools::Itertools;
 use octocrab::Octocrab;
 use tokio::fs;
 use tokio::sync::{Mutex, RwLock};
@@ -132,12 +133,19 @@ async fn log_time(InsecureClientIp(ip): InsecureClientIp, req: Request, next: Ne
 
 	let method = req.method().to_string();
 	let path = req.uri().path().to_owned();
+	let q = req
+		.uri()
+		.query()
+		.map(|x| serde_urlencoded::from_str::<Vec<(String, String)>>(x).ok())
+		.flatten()
+		.map(|x| format!("?{}", x.into_iter().map(|y| format!("{}={}", y.0, y.1)).join("&")))
+		.unwrap_or_default();
 
 	let res = next.run(req).await;
 
 	let end = SystemTime::now();
 	tracing::debug!(
-		"{} {} from {}: {} ms elapsed",
+		"{} {}{q} from {}: {} ms elapsed",
 		method,
 		path,
 		ip,
