@@ -13,6 +13,10 @@ static INDEX: &'static str = include_str!("../../index.html");
 
 pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<String>, AppError> {
 	let filter = params.get("filter");
+	let limit = params
+		.get("limit")
+		.map(|x| x.parse().expect("bad limit parameter"))
+		.unwrap_or(50);
 	let filter_query = filter.cloned().unwrap_or_default();
 	let sql_filter = if let Some(filter_query) = filter {
 		construct_sql_filter(filter_query)
@@ -34,9 +38,9 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 			.collect();
 
 		let mut rows2 = vec![];
-		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, true, true, 50)?);
+		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, true, true, limit)?);
 		for cat in [AWAITING_AUTHOR, NEEDS_REVIEWER, NEEDS_MERGER] {
-			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, true, true, 50)?);
+			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, true, true, limit)?);
 		}
 		Ok((counts, rows2))
 	})?;
