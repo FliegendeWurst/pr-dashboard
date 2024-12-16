@@ -60,11 +60,11 @@ html, body {
 	box-shadow: var(--shadow-resting-medium,var(--color-shadow-medium,0 3px 6px rgba(140,149,159,0.15)));
 }
 
-.pr-header, .pr-date, .pr-label {
+.pr-header, .pr-date, .pr-label, .pr-hide {
 	font-size: 12px;
 }
 
-.pr-date {
+.pr-date, .pr-hide {
 	float: right;
 }
 
@@ -76,6 +76,14 @@ html, body {
 .pr-label {
 	padding: 0 7px;
 	text-decoration: dotted underline;
+}
+
+.pr-hide {
+	text-decoration: dotted underline;
+	background: none;
+	color: inherit;
+	border: none;
+	cursor: pointer;
 }
 
 .reserve {
@@ -183,6 +191,31 @@ for (const button of buttons) {
 	button.addEventListener("click", e => {
 		reserveAndOpen(cat);
 	});
+}
+
+let hidden = localStorage.getItem("hiddenPRs");
+if (!hidden) {
+	hidden = [];
+} else {
+	hidden = JSON.parse(hidden);
+}
+
+const buttonsHide = document.querySelectorAll("button.pr-hide");
+for (const button of buttonsHide) {
+	button.addEventListener("click", e => {
+		e.target.parentElement.style.visibility = "collapse"
+		const pr = e.target.parentElement.children[0].children[0].href.substring(38);
+		hidden.push(pr);
+		localStorage.setItem("hiddenPRs", JSON.stringify(hidden));
+	});
+}
+
+for (const pr of hidden) {
+	const target = document.querySelector(`a[href='https://github.com/NixOS/nixpkgs/pull/${pr}']`);
+	if (!target) {
+		continue;
+	}
+	target.parentElement.parentElement.style.visibility = "collapse";
 }
 
 </script>

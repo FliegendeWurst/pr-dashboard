@@ -98,7 +98,11 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 			<span class="pr-header">nixpkgs <a href="https://github.com/NixOS/nixpkgs/pull/{id}">#{id}</a></span>
 			<span class="pr-date">{date}</span>
 			<br>
-			<span class="pr-title">{title}</span><br>{labels}</div>"#
+			<span class="pr-title">{title}</span>
+			<br>
+			{labels}
+			<button class="pr-hide">hide</button>
+			</div>"#
 		);
 		if category.is_none() {
 			prs_new += &formatting;
