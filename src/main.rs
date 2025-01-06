@@ -163,6 +163,7 @@ pub struct AppState {
 
 pub fn construct_sql_filter(filter_query: &str) -> String {
 	let mut filter = "".to_owned();
+	let mut labels = vec![];
 	for label in filter_query.split(';') {
 		if let Some(offender) = label
 			.chars()
@@ -170,6 +171,11 @@ pub fn construct_sql_filter(filter_query: &str) -> String {
 		{
 			panic!("invalid character in label filter: {offender:?}");
 		}
+		labels.push(label);
+	}
+	labels.sort();
+	labels.dedup();
+	for label in labels {
 		filter += &format!(r#"AND data LIKE "%{label}%""#);
 	}
 	filter
