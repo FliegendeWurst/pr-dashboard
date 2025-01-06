@@ -80,10 +80,15 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 				+ usize::from_str_radix(&label.color[2..4], 16)?
 				+ usize::from_str_radix(&label.color[4..6], 16)?;
 			let text_color = if rgb_sum > 128 * 3 { "000000" } else { "ffffff" };
+			let name = label.name.replace('+', "");
 			let href_filter = if let Some(filter) = filter {
-				format!("?filter={filter};{}", label.name.replace('+', ""))
+				if filter.contains(&name) {
+					format!("?filter={filter}")
+				} else {
+					format!("?filter={filter};{}", name)
+				}
 			} else {
-				format!("?filter={}", label.name.replace('+', ""))
+				format!("?filter={}", name)
 			};
 			labels += &format!(
 				r#"<a href="{href_filter}" class="pr-label" style="background-color: #{}; color: #{}">{}</a>"#,
