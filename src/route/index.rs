@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use axum::{extract::Query, response::Html};
+use axum::{extract::Query, http::StatusCode, response::Html};
 use octocrab::models::pulls::PullRequest;
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 
 static INDEX: &'static str = include_str!("../../index.html");
 
-pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<String>, AppError> {
+pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(StatusCode, Html<String>), AppError> {
 	let filter = params.get("filter");
 	let limit = params
 		.get("limit")
@@ -44,6 +44,9 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 		}
 		Ok((counts, rows2))
 	})?;
+	if counts.iter().all(|x| x.1 == 0) {
+		return Ok((StatusCode::NOT_FOUND, Html(include_str!("../../404.html").to_owned())));
+	}
 
 	let mut prs_author = String::new();
 	let mut prs_new = String::new();
@@ -160,5 +163,5 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<Html<
 		.replace("$PRS_3", &prs_need_review)
 		.replace("$PRS_4", &prs_need_merger);
 
-	Ok(Html(index))
+	Ok((StatusCode::OK, Html(index)))
 }
