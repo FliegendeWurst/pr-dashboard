@@ -10,7 +10,7 @@
 
   outputs = inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" ];
+      systems = [ "aarch64-linux" ];
       perSystem = { config, self', pkgs, lib, system, ... }:
         let
           runtimeDeps = with pkgs; [ sqlite ];
