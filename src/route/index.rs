@@ -94,7 +94,7 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 				format!("?filter={}", name)
 			};
 			labels += &format!(
-				r#"<a href="{href_filter}" class="pr-label" style="background-color: #{}; color: #{}">{}</a>"#,
+				r#"<a href="{href_filter}" class="pr-label" style="background-color: #{}; color: #{}">{}</a> "#,
 				label.color,
 				text_color,
 				askama_escape::escape(&label.name, askama_escape::Html)
