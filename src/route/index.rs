@@ -23,6 +23,9 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 	} else {
 		"".to_owned()
 	};
+	let mut filter = filter.map(|x| x.split(';').collect::<Vec<_>>()).unwrap_or_default();
+	filter.sort();
+	filter.dedup();
 
 	let (counts, pulls) = with_db!(|db: &mut DB| {
 		let tx = db.transaction()?;
@@ -44,7 +47,8 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 		}
 		Ok((counts, rows2))
 	})?;
-	if counts.iter().all(|x| x.1 == 0) {
+	let total: usize = counts.iter().map(|x| x.1).sum();
+	if total == 0 {
 		return Ok((StatusCode::NOT_FOUND, Html(include_str!("../../404.html").to_owned())));
 	}
 
@@ -84,15 +88,20 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 				+ usize::from_str_radix(&label.color[4..6], 16)?;
 			let text_color = if rgb_sum > 128 * 3 { "000000" } else { "ffffff" };
 			let name = label.name.replace('+', "");
-			let href_filter = if let Some(filter) = filter {
-				if filter.contains(&name) {
-					format!("?filter={filter}")
+			let mut href_filter = {
+				if filter.contains(&&*name) {
+					"javascript:void()".to_owned()
 				} else {
-					format!("?filter={filter};{}", name)
+					let mut filter = filter.clone();
+					filter.push(&name);
+					filter.sort();
+					filter.dedup();
+					format!("?filter={}", filter.join(";"))
 				}
-			} else {
-				format!("?filter={}", name)
 			};
+			if total == 1 {
+				href_filter = "javascript:void()".to_owned();
+			}
 			labels += &format!(
 				r#"<a href="{href_filter}" class="pr-label" style="background-color: #{}; color: #{}">{}</a> "#,
 				label.color,
@@ -154,10 +163,7 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 		.replace("$C2", &count_null.to_string())
 		.replace("$C3", &count_needs_reviewer.to_string())
 		.replace("$C4", &count_needs_merger.to_string())
-		.replace(
-			"$RESERVE_FILTER",
-			&filter.map(|x| format!("&filter={x}")).unwrap_or_default(),
-		)
+		.replace("$RESERVE_FILTER", &format!("&filter={}", filter.join(";")))
 		.replace("$PRS_1", &prs_author)
 		.replace("$PRS_2", &prs_new)
 		.replace("$PRS_3", &prs_need_review)
