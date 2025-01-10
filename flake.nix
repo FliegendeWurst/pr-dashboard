@@ -1,62 +1,89 @@
 {
-  inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.11";
-    flake-parts.url = "github:hercules-ci/flake-parts";
-    rust-overlay = {
-      url = "github:oxalica/rust-overlay";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-  };
+  description = "pr-dashboard";
 
-  outputs = inputs:
-    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-linux" ];
-      perSystem = { config, self', pkgs, lib, system, ... }:
+  # Nixpkgs / NixOS version to use.
+  inputs.nixpkgs.url = "nixpkgs/nixos-unstable";
+
+  outputs =
+    { self, nixpkgs }:
+    let
+
+      lib = nixpkgs.lib;
+
+      # to work with older version of flakes
+      lastModifiedDate = self.lastModifiedDate or self.lastModified or "19700101";
+
+      # Generate a user-friendly version number.
+      version = builtins.substring 0 8 lastModifiedDate;
+
+      # System types to support.
+      supportedSystems = [
+        "x86_64-linux"
+        "x86_64-darwin"
+        "aarch64-linux"
+        "aarch64-darwin"
+        "x86_64-linux-cross-aarch64-linux"
+      ];
+
+      # Helper function to generate an attrset '{ x86_64-linux = f "x86_64-linux"; ... }'.
+      forAllSystems = lib.genAttrs supportedSystems;
+
+      # Nixpkgs instantiated for supported system types.
+      nixpkgsFor = forAllSystems (
+        system:
         let
-          runtimeDeps = with pkgs; [ sqlite ];
-          buildDeps = with pkgs; [ pkg-config rustPlatform.bindgenHook ];
-          devDeps = with pkgs; [ ];
+          parts = lib.splitString "-cross-" system;
+        in
+        (
+          if (lib.length parts) == 1 then
+            import nixpkgs { inherit system; }
+          else
+            import nixpkgs {
+              localSystem = lib.elemAt parts 0;
+              hostSystem = lib.elemAt parts 0;
+              crossSystem = lib.elemAt parts 1;
+            }
+        )
+      );
 
-          cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
-          msrv = cargoToml.package.rust-version;
+    in
+    {
 
-          rustPackage = features:
-            (pkgs.makeRustPlatform {
-              cargo = pkgs.rust-bin.stable.latest.minimal;
-              rustc = pkgs.rust-bin.stable.latest.minimal;
-            }).buildRustPackage {
-              inherit (cargoToml.package) name version;
-              src = ./.;
-              cargoLock.lockFile = ./Cargo.lock;
-              buildFeatures = features;
-              buildInputs = runtimeDeps;
-              nativeBuildInputs = buildDeps;
-              # Uncomment if your cargo tests require networking or otherwise
-              # don't play nicely with the Nix build sandbox:
-              # doCheck = false;
+      # Provide some binary packages for selected system types.
+      packages = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgsFor.${system};
+        in
+        {
+          pr-dashboard = pkgs.rustPlatform.buildRustPackage rec {
+            pname = "pr-dashboard";
+            version = "0-unstable";
+
+            src = ./.;
+
+            cargoLock.lockFile = ./Cargo.lock;
+
+            nativeBuildInputs = with nixpkgsFor.${lib.elemAt (lib.splitString "-cross-" system) 0}; [
+              pkg-config
+              rustPlatform.bindgenHook
+            ];
+
+            buildInputs = with pkgs; [ sqlite ];
+
+            env.LIBSQLITE3_SYS_USE_PKG_CONFIG = "1";
+
+            meta = with lib; {
+              description = "Simple dashboard for nixpkgs PRs";
+              homepage = "https://github.com/FliegendeWurst/pr-dashboard";
+              license = licenses.gpl3Plus;
+              maintainers = with maintainers; [ fliegendewurst ];
+              mainProgram = "pr-dashboard";
             };
-
-          mkDevShell = rustc:
-            pkgs.mkShell {
-              shellHook = ''
-                export RUST_SRC_PATH=${pkgs.rustPlatform.rustLibSrc}
-              '';
-              buildInputs = runtimeDeps;
-              nativeBuildInputs = buildDeps ++ devDeps ++ [ rustc ];
-            };
-        in {
-          _module.args.pkgs = import inputs.nixpkgs {
-            inherit system;
-            overlays = [ (import inputs.rust-overlay) ];
           };
+        }
+      );
 
-          packages.default = (rustPackage "");
-          devShells.default = self'.devShells.nightly;
-
-          devShells.nightly = (mkDevShell (pkgs.rust-bin.selectLatestNightlyWith
-            (toolchain: toolchain.default)));
-          devShells.stable = (mkDevShell pkgs.rust-bin.stable.latest.default);
-          devShells.msrv = (mkDevShell pkgs.rust-bin.stable.${msrv}.default);
-        };
+      defaultPackage = forAllSystems (system: self.packages.${system}.pr-dashboard);
     };
 }
