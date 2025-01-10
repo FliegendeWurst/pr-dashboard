@@ -109,6 +109,7 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 		.route("/reserve-pr", post(reserve_pr))
 		.route("/list-reservations", get(list_reservations))
 		.route("/extend-reservations", post(extend_reservations))
+		.route("/robots.txt", get(robots_txt))
 		.layer(middleware::from_fn(log_time))
 		.layer(SecureClientIpSource::ConnectInfo.into_extension())
 		.layer(CatchPanicLayer::custom(handle_panic))

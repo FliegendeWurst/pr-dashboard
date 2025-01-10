@@ -11,3 +11,7 @@ pub use index::*;
 pub use list_reservations::*;
 pub use reserve_pr::*;
 pub use update_prs::*;
+
+pub async fn robots_txt() -> &'static str {
+	include_str!("robots.txt")
+}
