@@ -162,22 +162,38 @@ pub struct AppState {
 	pub gh: Arc<RwLock<Octocrab>>,
 }
 
-pub fn construct_sql_filter(filter_query: &str) -> String {
+pub fn construct_sql_filter(filter_query: &str, exclude: &str) -> String {
+	println!("construct {exclude:?}");
 	let mut filter = "".to_owned();
 	let mut labels = vec![];
-	for label in filter_query.split(';') {
+	let mut labels_exclude = vec![];
+	for (label, incl) in filter_query
+		.split(';')
+		.map(|x| (x, true))
+		.chain(exclude.split(';').map(|x| (x, false)))
+	{
 		if let Some(offender) = label
 			.chars()
 			.find(|x| !x.is_ascii_alphanumeric() && !matches!(x, '.' | ' ' | '-' | '_' | ':' | '/' | '(' | ')'))
 		{
 			panic!("invalid character in label filter: {offender:?}");
 		}
-		labels.push(label);
+		if label == "" {
+			continue;
+		}
+		if incl {
+			labels.push(label);
+		} else {
+			labels_exclude.push(label);
+		}
 	}
 	labels.sort();
 	labels.dedup();
 	for label in labels {
-		filter += &format!(r#"AND data LIKE "%{label}%""#);
+		filter += &format!("AND data LIKE '%{label}%'");
+	}
+	for label in labels_exclude {
+		filter += &format!("AND data NOT LIKE '%{label}%'");
 	}
 	filter
 }

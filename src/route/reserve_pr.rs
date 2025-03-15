@@ -17,6 +17,7 @@ pub async fn reserve_pr(
 ) -> Result<String, AppError> {
 	let cat = params.get("category").expect("malformed request, requires category");
 	let filter = params.get("filter");
+	let exclude = params.get("exclude").map(|x| &**x).unwrap_or_default();
 
 	let lock = state.update_lock.lock().await;
 
@@ -24,7 +25,14 @@ pub async fn reserve_pr(
 
 	let result = with_db!(|db: &mut DB| {
 		let tx = db.transaction()?;
-		let pulls = tx.get_pulls(Some(cat), filter.map(|x| &**x).unwrap_or_default(), true, true, 1)?;
+		let pulls = tx.get_pulls(
+			Some(cat),
+			filter.map(|x| &**x).unwrap_or_default(),
+			exclude,
+			true,
+			true,
+			1,
+		)?;
 		if pulls.is_empty() {
 			return Ok(None);
 		}

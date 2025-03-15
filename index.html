@@ -11,6 +11,16 @@
 	font-family: sans-serif;
 }
 
+.center {
+	margin-left: auto;
+	margin-right: auto;
+	width: fit-content;
+}
+
+h1 {
+	text-align: center;
+}
+
 html, body {
 	margin: 0;
 	padding: 0;
@@ -130,6 +140,18 @@ html, body {
 }
 
 </style>
+
+<!--<h1>nixpkgs PRs</h1>-->
+
+<form id="settings" class="center">
+<fieldset>
+	<legend>Configuration</legend>
+	<label>Number of results: <input id="limit" name="limit" type="number" placeholder="50" value="$LIMIT"></label>
+	<label>Include filter: <input id="filter" name="filter" type="text" value="$FILTER"></label>
+	<label>Exclude filter: <input id="filter-exclude" name="exclude" type="text" value="$EXCLUDE_FILTER"></label>
+	<button type="submit">Update</button>
+</fieldset>
+</form>
 
 <div id="error" style="display: none"><span id="error-message"></span></div>
 <div id="categories">

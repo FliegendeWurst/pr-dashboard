@@ -80,6 +80,7 @@ pub trait CommonQueries {
 		&self,
 		category: Option<&str>,
 		filter_query: &str,
+		exclude: &str,
 		only_not_reserved: bool,
 		tweak_sort: bool,
 		limit: u64,
@@ -91,6 +92,7 @@ impl<'conn> CommonQueries for Transaction<'conn> {
 		&self,
 		category: Option<&str>,
 		filter_query: &str,
+		exclude: &str,
 		only_not_reserved: bool,
 		mut tweak_sort: bool,
 		limit: u64,
@@ -98,7 +100,7 @@ impl<'conn> CommonQueries for Transaction<'conn> {
 		if category == Some(NEEDS_MERGER) {
 			tweak_sort = false;
 		}
-		let sql_filter = construct_sql_filter(filter_query);
+		let sql_filter = construct_sql_filter(filter_query, exclude);
 		let reserved_filter = if only_not_reserved {
 			"AND reserved_by IS NULL"
 		} else {
@@ -117,6 +119,7 @@ impl<'conn> CommonQueries for Transaction<'conn> {
 			{reserved_filter}
 			ORDER BY last_updated ASC LIMIT {limit}"
 		))?;
+		println!("query = {query:?}");
 		let params = if cat != "" { params![cat] } else { params![] };
 		let rows = query.query_map(params, extract_row!(String Option<String>))?;
 		let mut prs: Vec<PR> = vec![];

@@ -12,18 +12,21 @@ use crate::{
 static INDEX: &'static str = include_str!("../../index.html");
 
 pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(StatusCode, Html<String>), AppError> {
-	let filter = params.get("filter");
+	let filter = params.get("filter").map(|x| &**x);
+	let exclude_filter = params.get("exclude").map(|x| &**x).unwrap_or_default();
 	let limit = params
 		.get("limit")
 		.map(|x| x.parse().expect("bad limit parameter"))
 		.unwrap_or(50);
-	let filter_query = filter.cloned().unwrap_or_default();
+	let filter_query = filter.unwrap_or_default();
 	let sql_filter = if let Some(filter_query) = filter {
-		construct_sql_filter(filter_query)
+		construct_sql_filter(filter_query, exclude_filter)
 	} else {
 		"".to_owned()
 	};
-	let mut filter = filter.map(|x| x.split(';').collect::<Vec<_>>()).unwrap_or_default();
+	let mut filter = filter
+		.map(|x| x.split(';').filter(|x| *x != "").collect::<Vec<_>>())
+		.unwrap_or_default();
 	filter.sort();
 	filter.dedup();
 
@@ -41,9 +44,9 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 			.collect();
 
 		let mut rows2 = vec![];
-		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, true, true, limit)?);
+		rows2.extend_from_slice(&tx.get_pulls(None, &filter_query, exclude_filter, true, true, limit)?);
 		for cat in [AWAITING_AUTHOR, NEEDS_REVIEWER, NEEDS_MERGER] {
-			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, true, true, limit)?);
+			rows2.extend_from_slice(&tx.get_pulls(Some(cat), &filter_query, exclude_filter, true, true, limit)?);
 		}
 		Ok((counts, rows2))
 	})?;
@@ -101,6 +104,14 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 			};
 			if total == 1 {
 				href_filter = "javascript:void()".to_owned();
+			}
+			if href_filter.starts_with('?') {
+				if limit != 50 {
+					href_filter = format!("?limit={limit}&{}", &href_filter[1..]);
+				}
+				if exclude_filter != "" {
+					href_filter += &format!("&exclude={}", exclude_filter);
+				}
 			}
 			labels += &format!(
 				r#"<a href="{href_filter}" class="pr-label" style="background-color: #{}; color: #{}">{}</a> "#,
@@ -164,6 +175,9 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 		.replace("$C3", &count_needs_reviewer.to_string())
 		.replace("$C4", &count_needs_merger.to_string())
 		.replace("$RESERVE_FILTER", &format!("&filter={}", filter.join(";")))
+		.replace("$FILTER", &filter.join(";"))
+		.replace("$EXCLUDE_FILTER", &exclude_filter)
+		.replace("$LIMIT", &limit.to_string())
 		.replace("$PRS_1", &prs_author)
 		.replace("$PRS_2", &prs_new)
 		.replace("$PRS_3", &prs_need_review)
