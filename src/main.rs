@@ -12,7 +12,7 @@ use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
-use axum::Router;
+use axum::{Extension, Router};
 use axum_client_ip::{ClientIp, ClientIpSource};
 use database::DB;
 use octocrab::Octocrab;
@@ -110,8 +110,7 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 		.route("/extend-reservations", post(extend_reservations))
 		.route("/robots.txt", get(robots_txt))
 		.layer(middleware::from_fn(log_time))
-		.layer(ClientIpSource::RightmostXForwardedFor.into_extension())
-		.layer(ClientIpSource::ConnectInfo.into_extension())
+		.layer(ip_extractor())
 		.layer(CatchPanicLayer::custom(handle_panic))
 		.with_state(AppState {
 			update_lock: Arc::new(Mutex::new(())),
@@ -127,6 +126,16 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 	axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
 
 	Ok(())
+}
+
+#[cfg(feature = "proxy")]
+fn ip_extractor() -> Extension<ClientIpSource> {
+	ClientIpSource::RightmostXForwardedFor.into_extension()
+}
+
+#[cfg(not(feature = "proxy"))]
+fn ip_extractor() -> Extension<ClientIpSource> {
+	ClientIpSource::ConnectInfo.into_extension()
 }
 
 async fn log_time(ClientIp(ip): ClientIp, RawQuery(query): RawQuery, req: Request, next: Next) -> Response {

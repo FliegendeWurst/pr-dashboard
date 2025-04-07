@@ -56,7 +56,7 @@
           pkgs = nixpkgsFor.${system};
         in
         {
-          pr-dashboard = pkgs.rustPlatform.buildRustPackage rec {
+          pr-dashboard = pkgs.rustPlatform.buildRustPackage {
             pname = "pr-dashboard";
             version = "0-unstable";
 
@@ -70,6 +70,8 @@
             ];
 
             buildInputs = with pkgs; [ sqlite ];
+
+            buildFeatures = lib.optionals (system == "x86_64-linux-cross-aarch64-linux") [ "proxy "];
 
             env.LIBSQLITE3_SYS_USE_PKG_CONFIG = "1";
 
