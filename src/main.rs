@@ -110,8 +110,8 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 		.route("/extend-reservations", post(extend_reservations))
 		.route("/robots.txt", get(robots_txt))
 		.layer(middleware::from_fn(log_time))
-		.layer(ClientIpSource::ConnectInfo.into_extension())
 		.layer(ClientIpSource::RightmostXForwardedFor.into_extension())
+		.layer(ClientIpSource::ConnectInfo.into_extension())
 		.layer(CatchPanicLayer::custom(handle_panic))
 		.with_state(AppState {
 			update_lock: Arc::new(Mutex::new(())),
