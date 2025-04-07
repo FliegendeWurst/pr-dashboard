@@ -3,16 +3,16 @@ name = "pr-dashboard"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
-rust-version = "1.82.0"
+rust-version = "1.85.0"
 
 [dependencies]
-askama_escape = "0.10.3"
-axum = { version = "0.7.9", features = ["macros"] }
-axum-client-ip = "0.6.1"
+askama_escape = "0.13.0"
+axum = { version = "0.8.3", features = ["macros"] }
+axum-client-ip = "1.0.0"
 chrono = "0.4.38"
-itertools = "0.12"
-octocrab = "0.42.1"
-rusqlite = { version = "0.32.1", features = ["array", "buildtime_bindgen", "vtab"] }
+itertools = "0.14.0"
+octocrab = "0.44.0"
+rusqlite = { version = "0.34.0", features = ["array", "buildtime_bindgen", "vtab"] }
 serde_json = "1.0.133"
 serde_urlencoded = "0.7.1"
 tokio = { version = "1.41.1", features = ["fs", "macros", "rt-multi-thread"] }

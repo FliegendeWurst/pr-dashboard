@@ -7,13 +7,13 @@ use std::num::ParseIntError;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use axum::extract::Request;
+use axum::extract::{RawQuery, Request};
 use axum::http::StatusCode;
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::Router;
-use axum_client_ip::{InsecureClientIp, SecureClientIpSource};
+use axum_client_ip::{ClientIp, ClientIpSource};
 use database::DB;
 use itertools::Itertools;
 use octocrab::Octocrab;
@@ -111,7 +111,8 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 		.route("/extend-reservations", post(extend_reservations))
 		.route("/robots.txt", get(robots_txt))
 		.layer(middleware::from_fn(log_time))
-		.layer(SecureClientIpSource::ConnectInfo.into_extension())
+		.layer(ClientIpSource::ConnectInfo.into_extension())
+		.layer(ClientIpSource::RightmostXForwardedFor.into_extension())
 		.layer(CatchPanicLayer::custom(handle_panic))
 		.with_state(AppState {
 			update_lock: Arc::new(Mutex::new(())),
@@ -129,24 +130,19 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 	Ok(())
 }
 
-async fn log_time(InsecureClientIp(ip): InsecureClientIp, req: Request, next: Next) -> Response {
+async fn log_time(ClientIp(ip): ClientIp, RawQuery(query): RawQuery, req: Request, next: Next) -> Response {
 	let start = SystemTime::now();
 
 	let method = req.method().to_string();
 	let path = req.uri().path().to_owned();
-	let q = req
-		.uri()
-		.query()
-		.map(|x| serde_urlencoded::from_str::<Vec<(String, String)>>(x).ok())
-		.flatten()
-		.map(|x| format!("?{}", x.into_iter().map(|y| format!("{}={}", y.0, y.1)).join("&")))
-		.unwrap_or_default();
+	let q = query.as_deref().unwrap_or_default();
+	let q_mark = if !q.is_empty() { "?" } else { "" };
 
 	let res = next.run(req).await;
 
 	let end = SystemTime::now();
 	tracing::debug!(
-		"{} {}{q} from {}: {} ms elapsed",
+		"{} {}{q_mark}{q} from {}: {} ms elapsed",
 		method,
 		path,
 		ip,
