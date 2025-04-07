@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use axum::extract::{Query, State};
-use axum_client_ip::InsecureClientIp;
+use axum_client_ip::ClientIp;
 use chrono::Local;
 use rusqlite::params;
 
@@ -13,7 +13,7 @@ use crate::{
 pub async fn reserve_pr(
 	State(state): State<AppState>,
 	Query(params): Query<HashMap<String, String>>,
-	InsecureClientIp(ip): InsecureClientIp,
+	ClientIp(ip): ClientIp,
 ) -> Result<String, AppError> {
 	let cat = params.get("category").expect("malformed request, requires category");
 	let filter = params.get("filter");

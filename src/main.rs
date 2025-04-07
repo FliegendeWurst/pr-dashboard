@@ -15,7 +15,6 @@ use axum::routing::{get, post};
 use axum::Router;
 use axum_client_ip::{ClientIp, ClientIpSource};
 use database::DB;
-use itertools::Itertools;
 use octocrab::Octocrab;
 use tokio::fs;
 use tokio::sync::{Mutex, RwLock};
