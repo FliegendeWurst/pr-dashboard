@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{rc::Rc, time::Duration};
 
 use axum::extract::State;
 use octocrab::{
@@ -6,6 +6,7 @@ use octocrab::{
 	params::{pulls::Sort, Direction},
 };
 use rusqlite::{params, params_from_iter};
+use tokio::time::sleep;
 
 use crate::{database::DB, with_db, AppError, AppState, TIME_FORMAT};
 
@@ -55,6 +56,7 @@ pub async fn update_prs(State(state): State<AppState>) -> Result<&'static str, A
 			.send()
 			.await?;
 		tracing::debug!("update: loading page {page}");
+		sleep(Duration::from_secs(10)).await;
 		if prs.items.is_empty() {
 			break;
 		}
