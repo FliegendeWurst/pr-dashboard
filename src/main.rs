@@ -167,7 +167,6 @@ pub struct AppState {
 }
 
 pub fn construct_sql_filter(filter_query: &str, exclude: &str) -> String {
-	println!("construct {exclude:?}");
 	let mut filter = "".to_owned();
 	let mut labels = vec![];
 	let mut labels_exclude = vec![];

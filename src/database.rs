@@ -119,7 +119,6 @@ impl<'conn> CommonQueries for Transaction<'conn> {
 			{reserved_filter}
 			ORDER BY last_updated ASC LIMIT {limit}"
 		))?;
-		println!("query = {query:?}");
 		let params = if cat != "" { params![cat] } else { params![] };
 		let rows = query.query_map(params, extract_row!(String Option<String>))?;
 		let mut prs: Vec<PR> = vec![];
