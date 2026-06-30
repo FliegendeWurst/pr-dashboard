@@ -1,9 +1,10 @@
-use std::{rc::Rc, time::Duration};
+use std::{io::ErrorKind, rc::Rc, time::Duration};
 
 use axum::extract::State;
 use octocrab::{
-	models::IssueState,
+	models::{pulls::PullRequest, IssueState},
 	params::{pulls::Sort, Direction},
+	Octocrab, Page,
 };
 use rusqlite::{params, params_from_iter};
 use tokio::time::sleep;
@@ -30,6 +31,29 @@ query {
 }
 */
 
+async fn get_page(gh: &Octocrab, page: u32, state: octocrab::params::State) -> Option<Page<PullRequest>> {
+	for attempt in 0..10 {
+		let res = gh
+			.pulls("NixOS", "nixpkgs")
+			.list()
+			.sort(Sort::Updated)
+			.direction(Direction::Descending)
+			.state(state)
+			.per_page(100)
+			.page(page)
+			.send()
+			.await;
+		match res {
+			Ok(x) => return Some(x),
+			Err(e) => {
+				tracing::warn!("API error in update (attempt {attempt}): {e:?}");
+				sleep(Duration::from_secs(10)).await;
+			},
+		}
+	}
+	None
+}
+
 pub async fn update_prs(State(state): State<AppState>) -> Result<&'static str, AppError> {
 	let update_lock = state.update_lock.lock().await;
 	let last_update = with_db!(|db: &mut DB| db.last_update())?;
@@ -45,16 +69,10 @@ pub async fn update_prs(State(state): State<AppState>) -> Result<&'static str, A
 	let mut pulls = vec![];
 	let mut to_remove = vec![];
 	'pages: for page in 1u32.. {
-		let prs = gh
-			.pulls("NixOS", "nixpkgs")
-			.list()
-			.sort(Sort::Updated)
-			.direction(Direction::Descending)
-			.state(state)
-			.per_page(100)
-			.page(page)
-			.send()
-			.await?;
+		let Some(prs) = get_page(&gh, page, state).await else {
+			tracing::warn!("update: could not get page");
+			return Err(std::io::Error::new(ErrorKind::NotFound, "10 api errors").into());
+		};
 		tracing::debug!("update: loading page {page}");
 		sleep(Duration::from_secs(10)).await;
 		if prs.items.is_empty() {
