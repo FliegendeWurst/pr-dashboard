@@ -61,7 +61,10 @@ pub async fn update_prs(State(state): State<AppState>) -> Result<&'static str, A
 			break;
 		}
 		for pr in prs {
-			let id = pr.number as i64;
+			let Some(id) = pr.number.map(|x| x as i64) else {
+				tracing::warn!("PR {:?} without number in update", pr.id);
+				continue;
+			};
 			let updated_at = pr.updated_at.map(|x| x.format(TIME_FORMAT).to_string());
 
 			if pr.state.as_ref().map(|x| *x == IssueState::Closed).unwrap_or(false) {

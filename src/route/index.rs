@@ -123,14 +123,15 @@ pub async fn root(Query(params): Query<HashMap<String, String>>) -> Result<(Stat
 
 		let formatting = format!(
 			r#"<div class="pr">
-			<span class="pr-header">nixpkgs <a href="https://github.com/NixOS/nixpkgs/pull/{id}">#{id}</a></span>
+			<span class="pr-header">nixpkgs <a href="https://github.com/NixOS/nixpkgs/pull/{id}">#{}</a></span>
 			<span class="pr-date">{date}</span>
 			<br>
 			<span class="pr-title">{title}</span>
 			<br>
 			{labels}
 			<button class="pr-hide">hide</button>
-			</div>"#
+			</div>"#,
+			id.unwrap_or(1)
 		);
 		if category.is_none() {
 			prs_new += &formatting;
