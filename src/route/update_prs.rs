@@ -1,4 +1,4 @@
-use std::{io::ErrorKind, rc::Rc, time::Duration};
+use std::{collections::HashSet, io::ErrorKind, rc::Rc, time::Duration};
 
 use axum::extract::State;
 use octocrab::{
@@ -120,6 +120,95 @@ pub async fn update_prs(State(state): State<AppState>) -> Result<&'static str, A
 	let to_delete = Rc::new(
 		to_remove
 			.into_iter()
+			.map(rusqlite::types::Value::from)
+			.collect::<Vec<_>>(),
+	);
+	with_db!(|db: &mut DB| {
+		let tx = db.transaction()?;
+		for data in pulls {
+			let res = tx.execute(
+				"INSERT INTO pulls
+				(id,author,last_updated,data)
+				VALUES (?1,?2,?3,?4) ON CONFLICT DO UPDATE SET
+				author = ?2,
+				last_updated = ?3,
+				data = ?4",
+				params_from_iter(data.iter()),
+			);
+			if let Err(err) = res {
+				tracing::warn!("error during pr update: {:?}", err);
+			}
+		}
+		tracing::debug!("update: removing {} closed PRs", to_delete.len());
+		let res = tx.execute(
+			"DELETE FROM pulls
+			WHERE id IN rarray(?1)",
+			params![to_delete],
+		);
+		if let Err(err) = res {
+			tracing::warn!("error during pr update: {:?}", err);
+		}
+		let res = tx.commit();
+		if let Err(err) = res {
+			tracing::warn!("error during pr update: {:?}", err);
+		}
+		Ok(())
+	})?;
+
+	drop(update_lock);
+
+	Ok("done")
+}
+
+/// Completely rebuild the database.
+pub async fn update_prs_all(State(state): State<AppState>) -> Result<&'static str, AppError> {
+	let update_lock = state.update_lock.lock().await;
+	let gh = state.gh.read().await;
+
+	let state = octocrab::params::State::Open;
+
+	let existing_pr_ids = with_db!(|db: &DB| db.all_ids())?;
+
+	let mut pulls = vec![];
+	let mut pull_ids = HashSet::new();
+	for page in 1u32.. {
+		let Some(prs) = get_page(&gh, page, state).await else {
+			tracing::warn!("update: could not get page");
+			return Err(std::io::Error::new(ErrorKind::NotFound, "too many api errors").into());
+		};
+		tracing::debug!("update: loading page {page}");
+		sleep(Duration::from_secs(10)).await;
+		if prs.items.is_empty() {
+			break;
+		}
+		for pr in prs {
+			let Some(id) = pr.number.map(|x| x as i64) else {
+				tracing::warn!("PR {:?} without number in update", pr.id);
+				continue;
+			};
+			let updated_at = pr.updated_at.map(|x| x.format(TIME_FORMAT).to_string());
+
+			if pr.state.as_ref().map(|x| *x == IssueState::Closed).unwrap_or(false) {
+				// should not happen, ignore if it did
+				continue;
+			}
+
+			let Some(author) = pr.user.as_ref() else {
+				tracing::warn!("error during pr update of {id}: has no author");
+				continue;
+			};
+			let author = author.login.clone();
+			let data = serde_json::to_string(&pr)?;
+
+			pulls.push(vec![Some(id.to_string()), Some(author), updated_at, Some(data)]);
+			pull_ids.insert(id);
+		}
+	}
+
+	let to_delete = Rc::new(
+		existing_pr_ids
+			.into_iter()
+			.filter(|id| !pull_ids.contains(id))
 			.map(rusqlite::types::Value::from)
 			.collect::<Vec<_>>(),
 	);

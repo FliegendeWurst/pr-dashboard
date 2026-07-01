@@ -104,6 +104,7 @@ async fn real_main() -> Result<(), Box<dyn Error>> {
 	let app = Router::new()
 		.route("/", get(root))
 		.route("/update-prs", post(update_prs))
+		.route("/update-prs-all", post(update_prs_all))
 		.route("/housekeep-prs", post(housekeep_prs))
 		.route("/reserve-pr", post(reserve_pr))
 		.route("/list-reservations", get(list_reservations))

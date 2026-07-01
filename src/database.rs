@@ -50,6 +50,15 @@ impl DB {
 		})?)
 	}
 
+	pub fn all_ids(&self) -> Result<Vec<i64>, Box<dyn Error>> {
+		let mut stmt = self.db.prepare("SELECT id FROM pulls")?;
+		let mut ids = vec![];
+		for r in stmt.query_map([], |row| row.get::<_, i64>(0))? {
+			ids.push(r?);
+		}
+		Ok(ids)
+	}
+
 	pub fn transaction(&mut self) -> Result<Transaction, Box<dyn Error>> {
 		Ok(self.db.transaction()?)
 	}
