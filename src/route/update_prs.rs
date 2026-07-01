@@ -32,7 +32,7 @@ query {
 */
 
 async fn get_page(gh: &Octocrab, page: u32, state: octocrab::params::State) -> Option<Page<PullRequest>> {
-	for attempt in 0..10 {
+	for attempt in 0..30 {
 		let res = gh
 			.pulls("NixOS", "nixpkgs")
 			.list()
@@ -47,7 +47,14 @@ async fn get_page(gh: &Octocrab, page: u32, state: octocrab::params::State) -> O
 			Ok(x) => return Some(x),
 			Err(e) => {
 				tracing::warn!("API error in update (attempt {attempt}): {e:?}");
-				sleep(Duration::from_secs(10)).await;
+				let s = if attempt < 10 {
+					10
+				} else if attempt < 20 {
+					20
+				} else {
+					30
+				};
+				sleep(Duration::from_secs(s)).await;
 			},
 		}
 	}
